@@ -2368,7 +2368,11 @@
     function mettreAJourLoyer() {
       // Calculer les totaux
       const totalLoyer = loyerData.total;
-      const loyerPaye = loyerData.paiements.reduce((sum, p) => sum + p.montant, 0);
+      
+      // CORRECTION : Vérifier si paiements existe et est un tableau
+      const loyerPaye = Array.isArray(loyerData.paiements) ? 
+        loyerData.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
+        
       const loyerRestant = Math.max(0, totalLoyer - loyerPaye);
       const personnesActives = personnes.length;
       
@@ -2379,7 +2383,10 @@
       document.getElementById('personnesLoyer').textContent = personnesActives;
       
       // Mettre à jour les dépenses imprévues
-      const totalDepenses = loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0);
+      // CORRECTION : Vérifier si depensesImprevues existe et est un tableau
+      const totalDepenses = Array.isArray(loyerData.depensesImprevues) ? 
+        loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0) : 0;
+        
       const partParPersonne = personnesActives > 0 ? Math.round(totalDepenses / personnesActives) : 0;
       
       document.getElementById('totalDepensesImprevues').textContent = totalDepenses;
@@ -2390,7 +2397,10 @@
       peopleList.innerHTML = '';
       
       personnes.forEach(personne => {
-        const paiementsPersonne = loyerData.paiements.filter(p => p.personneId === personne.id);
+        // CORRECTION : Vérifier si paiements existe et est un tableau
+        const paiementsPersonne = Array.isArray(loyerData.paiements) ? 
+          loyerData.paiements.filter(p => p.personneId === personne.id) : [];
+          
         const totalPaye = paiementsPersonne.reduce((sum, p) => sum + p.montant, 0);
         
         let paiementsHtml = '';
@@ -2445,7 +2455,8 @@
       const expensesList = document.getElementById('expensesList');
       expensesList.innerHTML = '';
       
-      if (loyerData.depensesImprevues.length === 0) {
+      // CORRECTION : Vérifier si depensesImprevues existe et est un tableau
+      if (!Array.isArray(loyerData.depensesImprevues) || loyerData.depensesImprevues.length === 0) {
         expensesList.innerHTML = `
           <div class="empty-state" style="padding: 20px 0;">
             <div class="empty-icon">🧾</div>
@@ -2474,11 +2485,17 @@
       mettreAJourResumePaiements();
     }
 
-    // Mettre à jour le résumé des paiements
+        // Mettre à jour le résumé des paiements
     function mettreAJourResumePaiements() {
       // Calculer les totaux - SEULEMENT LOYER ET DEPENSES
-      const totalLoyerPaye = loyerData.paiements.reduce((sum, p) => sum + p.montant, 0);
-      const totalDepenses = loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0);
+      // CORRECTION : Vérifier si paiements existe et est un tableau
+      const totalLoyerPaye = Array.isArray(loyerData.paiements) ? 
+        loyerData.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
+        
+      // CORRECTION : Vérifier si depensesImprevues existe et est un tableau
+      const totalDepenses = Array.isArray(loyerData.depensesImprevues) ? 
+        loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0) : 0;
+        
       const partParPersonne = personnes.length > 0 ? Math.round(totalDepenses / personnes.length) : 0;
       
       // Mettre à jour les statistiques
@@ -2495,9 +2512,11 @@
       
       personnes.forEach(personne => {
         // Calculate how much this person paid for rent
-        const loyerPaye = loyerData.paiements
-          .filter(p => p.personneId === personne.id)
-          .reduce((sum, p) => sum + p.montant, 0);
+        // CORRECTION : Vérifier si paiements existe et est un tableau
+        const loyerPaye = Array.isArray(loyerData.paiements) ? 
+          loyerData.paiements
+            .filter(p => p.personneId === personne.id)
+            .reduce((sum, p) => sum + p.montant, 0) : 0;
         
         // Calculate the person's share of expenses
         const solde = loyerPaye - partParPersonne;
