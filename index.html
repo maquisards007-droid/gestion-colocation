@@ -1243,10 +1243,7 @@
           mettreAJourLoyer();
           mettreAJourRentAccess();
           
-          // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
-          if (data.lastModifiedBy !== localStorage.getItem('userId')) {
-            afficherNotification("Données synchronisées avec les colocataires !");
-          }
+        
         }
       });
     }
@@ -2618,5 +2615,6 @@
   </script>
 </body>
 </html>
+
 
 
