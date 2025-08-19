@@ -1768,12 +1768,18 @@
       // Afficher les groupes avec leurs tâches pour cette semaine
       for (let i = 0; i < 3; i++) {
         const groupeIndex = (i + rotationCourses) % 3;
-        const groupe = groupesConfig.courses.groupes[groupeIndex];
+        
+        // CORRECTION : Vérifier si groupesConfig.courses.groupes existe et est un tableau
+        const groupe = Array.isArray(groupesConfig.courses?.groupes) && 
+                      groupesConfig.courses.groupes[groupeIndex] !== null &&
+                      Array.isArray(groupesConfig.courses.groupes[groupeIndex]) ?
+                      groupesConfig.courses.groupes[groupeIndex] : [];
+                      
         const tacheIndex = (i + rotationCourses) % 3;
         
         html += `
           <div class="group-item" style="border-left-color: #48bb78;">
-            <div class="group-title">${groupesConfig.courses.noms[groupeIndex]} : ${groupesConfig.courses.taches[tacheIndex]}</div>
+            <div class="group-title">${groupesConfig.courses.noms[groupeIndex] || 'Groupe ' + (groupeIndex + 1)} : ${groupesConfig.courses.taches[tacheIndex] || 'Tâche non définie'}</div>
             <div class="group-members">
               ${groupe.map(id => {
                 const personne = personnes.find(p => p.id === id);
@@ -1801,12 +1807,18 @@
       
       for (let i = 0; i < 2; i++) {
         const groupeIndex = (i + rotationMenage) % 2;
-        const groupe = groupesConfig.menage.groupes[groupeIndex];
+        
+        // CORRECTION : Vérifier si groupesConfig.menage.groupes existe et est un tableau
+        const groupe = Array.isArray(groupesConfig.menage?.groupes) && 
+                      groupesConfig.menage.groupes[groupeIndex] !== null &&
+                      Array.isArray(groupesConfig.menage.groupes[groupeIndex]) ?
+                      groupesConfig.menage.groupes[groupeIndex] : [];
+                      
         const tacheIndex = (i + rotationMenage) % 2;
         
         html += `
           <div class="group-item" style="border-left-color: #ed8936;">
-            <div class="group-title">${groupesConfig.menage.noms[groupeIndex]} : ${groupesConfig.menage.taches[tacheIndex]}</div>
+            <div class="group-title">${groupesConfig.menage.noms[groupeIndex] || 'Groupe ' + (groupeIndex + 1)} : ${groupesConfig.menage.taches[tacheIndex] || 'Tâche non définie'}</div>
             <div class="group-members">
               ${groupe.map(id => {
                 const personne = personnes.find(p => p.id === id);
