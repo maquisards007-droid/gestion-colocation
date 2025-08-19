@@ -687,6 +687,19 @@
       border-color: #4299e1;
     }
     
+    .sync-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 10px;
+      color: white;
+      font-size: 0.8rem;
+    }
+    
+    .sync-indicator span {
+      font-size: 1.2rem;
+    }
+    
     @media (max-width: 768px) {
       .nav-tabs {
         flex-direction: column;
@@ -724,6 +737,10 @@
       <button class="nav-tab" onclick="showSection('historique')">📊 Historique</button>
       <button class="nav-tab" onclick="showSection('taches')">🧹 Tâches</button>
       <button class="nav-tab" onclick="showSection('depenses')">🏠 Loyer & Dépenses</button>
+      <div class="sync-indicator">
+        <span id="syncStatus">Synchronisation</span>
+        <span>🔄</span>
+      </div>
     </div>
     
     <!-- Section Cotisations -->
@@ -1130,17 +1147,11 @@
     };
     let isFirebaseSyncing = false;
     let lastSyncTime = 0;
+    let rentPasswordSet = false;
+    let rentPassword = '';
+    let isRentAuthenticated = false;
+    let roomCode = 'colocation'; // Code fixe pour tous les utilisateurs
 
-    // Générer un code de pièce unique (à stocker dans localStorage)
-    function getRoomCode() {
-      let roomCode = localStorage.getItem('roomCode');
-      if (!roomCode) {
-        roomCode = 'colocation'; // Code fixe pour tous les colocataires
-        localStorage.setItem('roomCode', roomCode);
-      }
-      return roomCode;
-    }
-    
     // Fonction pour sauvegarder dans Firebase
     function sauvegarderSurFirebase() {
       // Ne pas synchroniser si on est en train de charger des données
@@ -1153,11 +1164,13 @@
         groupesConfig: groupesConfig,
         loyerData: loyerData,
         timestamp: Date.now(),
-        lastModifiedBy: localStorage.getItem('userId') || 'unknown'
+        lastModifiedBy: localStorage.getItem('userId') || 'unknown',
+        rentPasswordSet: rentPasswordSet,
+        rentPassword: rentPassword
       };
       
       isFirebaseSyncing = true;
-      database.ref('colocations/' + getRoomCode()).set(donnees)
+      database.ref('colocations/' + roomCode).set(donnees)
         .then(() => {
           console.log("Données synchronisées avec Firebase");
           lastSyncTime = Date.now();
@@ -1180,16 +1193,18 @@
     
     // Fonction pour charger depuis Firebase
     function chargerDepuisFirebase() {
-      database.ref('colocations/' + getRoomCode()).on('value', (snapshot) => {
+      database.ref('colocations/' + roomCode).on('value', (snapshot) => {
         const data = snapshot.val();
-        if (data && !isFirebaseSyncing) {
+        if (data) {
           // Sauvegarder l'état actuel localement pour comparaison
           const localData = {
             personnes: personnes,
             cotisationsSemaine: cotisationsSemaine,
             montantCotisation: montantCotisation,
             groupesConfig: groupesConfig,
-            loyerData: loyerData
+            loyerData: loyerData,
+            rentPasswordSet: rentPasswordSet,
+            rentPassword: rentPassword
           };
           
           // Mettre à jour les données
@@ -1198,6 +1213,8 @@
           montantCotisation = data.montantCotisation || 100;
           groupesConfig = data.groupesConfig || groupesConfig;
           loyerData = data.loyerData || loyerData;
+          rentPasswordSet = data.rentPasswordSet || false;
+          rentPassword = data.rentPassword || '';
           
           // Vérifier si les données ont changé
           const dataChanged = JSON.stringify(localData) !== JSON.stringify({
@@ -1205,7 +1222,9 @@
             cotisationsSemaine: cotisationsSemaine,
             montantCotisation: montantCotisation,
             groupesConfig: groupesConfig,
-            loyerData: loyerData
+            loyerData: loyerData,
+            rentPasswordSet: rentPasswordSet,
+            rentPassword: rentPassword
           });
           
           // Mettre à jour l'interface uniquement si nécessaire
@@ -1214,6 +1233,7 @@
             rendrePersonnes();
             rendreTaches();
             mettreAJourLoyer();
+            mettreAJourRentAccess();
             
             // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
             if (data.lastModifiedBy !== localStorage.getItem('userId')) {
@@ -1222,6 +1242,27 @@
           }
         }
       });
+    }
+    
+    // Mettre à jour l'accès à la section loyer
+    function mettreAJourRentAccess() {
+      // Vérifier si le mot de passe est configuré
+      if (rentPasswordSet) {
+        // Si l'utilisateur est déjà authentifié, on garde l'accès
+        if (isRentAuthenticated) {
+          document.getElementById('rentLockScreen').style.display = 'none';
+          document.getElementById('rentContent').style.display = 'block';
+        } else {
+          // Sinon, on affiche l'écran de verrouillage
+          document.getElementById('rentLockScreen').style.display = 'flex';
+          document.getElementById('rentContent').style.display = 'none';
+        }
+      } else {
+        // Si le mot de passe n'est pas configuré, on affiche la modal de configuration
+        if (!document.getElementById('passwordModal').style.display || document.getElementById('passwordModal').style.display === 'none') {
+          openPasswordModal();
+        }
+      }
     }
     
     // Charger les données
@@ -1254,6 +1295,10 @@
           depensesImprevues: []
         };
         tachesHistorique = donnees.tachesHistorique || [];
+        
+        // Charger l'état d'authentification
+        isRentAuthenticated = localStorage.getItem('rentAuthenticated') === 'true';
+        rentPasswordSet = localStorage.getItem('rentPasswordSet') === 'true';
       } else {
         // Initialisation des données par défaut
         personnes = [];
@@ -1278,6 +1323,8 @@
           depensesImprevues: []
         };
         tachesHistorique = [];
+        isRentAuthenticated = false;
+        rentPasswordSet = false;
       }
     }
 
@@ -1323,34 +1370,17 @@
       document.getElementById('rentDate').value = today;
       document.getElementById('expenseDate').value = today;
       
-      // Vérifier si le mot de passe a déjà été configuré
-      const rentPasswordSet = localStorage.getItem('rentPasswordSet');
-      if (!rentPasswordSet) {
-        setTimeout(openPasswordModal, 1000);
-      }
-      
       // Initialiser la configuration du loyer
       document.getElementById('rentAmountConfig').value = loyerData.total;
       
       // Initialiser Firebase
       chargerDepuisFirebase();
       
-      // Ajouter un indicateur de synchronisation
-      const navTabs = document.querySelector('.nav-tabs');
-      const syncIndicator = document.createElement('div');
-      syncIndicator.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px; color: white; font-size: 0.8rem;">
-          <span id="syncStatus">Synchronisation</span>
-          <span style="font-size: 1.2rem;">🔄</span>
-        </div>
-      `;
-      navTabs.appendChild(syncIndicator);
-      
       // Synchroniser immédiatement au chargement
       setTimeout(sauvegarderSurFirebase, 1000);
       
-      // Synchroniser toutes les 15 secondes
-      setInterval(sauvegarderSurFirebase, 15000);
+      // Synchroniser toutes les 10 secondes
+      setInterval(sauvegarderSurFirebase, 10000);
     });
 
     // Gestion des sections
@@ -1367,12 +1397,7 @@
       
       // Si on accède à la section loyer, vérifier l'authentification
       if (nomSection === 'depenses') {
-        const isAuthenticated = localStorage.getItem('rentAuthenticated') === 'true';
-        document.getElementById('rentLockScreen').style.display = isAuthenticated ? 'none' : 'flex';
-        document.getElementById('rentContent').style.display = isAuthenticated ? 'block' : 'none';
-        if (isAuthenticated) {
-          mettreAJourLoyer();
-        }
+        mettreAJourRentAccess();
       }
     }
 
@@ -2171,9 +2196,8 @@
       const passwordInput = document.getElementById('rentPassword');
       const password = passwordInput.value;
       
-      // Vérifier le mot de passe (dans un vrai système, il serait haché)
-      const storedPassword = localStorage.getItem('rentPassword');
-      if (password === storedPassword) {
+      if (password === rentPassword) {
+        isRentAuthenticated = true;
         localStorage.setItem('rentAuthenticated', 'true');
         document.getElementById('rentLockScreen').style.display = 'none';
         document.getElementById('rentContent').style.display = 'block';
@@ -2211,9 +2235,14 @@
         return;
       }
       
-      // Stocker le mot de passe (dans un vrai système, il serait haché)
-      localStorage.setItem('rentPassword', newPassword);
-      localStorage.setItem('rentPasswordSet', 'true');
+      // Mettre à jour les variables locales
+      rentPasswordSet = true;
+      rentPassword = newPassword;
+      
+      // Mettre à jour Firebase
+      sauvegarderSurFirebase();
+      
+      // Mettre à jour l'interface
       closePasswordModal();
       afficherNotification('Mot de passe configuré avec succès !');
     }
