@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>" type="image/svg+xml">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Gestion de Colocation</title>
+  <link rel="icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><style>text{font-family:Arial,sans-serif;font-weight:bold;}</style><circle cx='50' cy='50' r='45' fill='%234299e1'/><path d='M25 40 L50 20 L75 40 L65 40 L65 65 L35 65 L35 40 Z' fill='white'/><text x='50' y='85' font-size='28' fill='white' text-anchor='middle' dy='.3em'>GC</text></svg>" type="image/svg+xml">
   <style>
     * {
       box-sizing: border-box;
@@ -19,14 +19,6 @@
       background-color: #f7fafc;
       padding: 20px;
     }
-
-    .form-label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: #2d3748;
-    }
-
     
     .container {
       max-width: 1200px;
@@ -91,7 +83,7 @@
       margin-bottom: 20px;
     }
     
-    label {
+    .form-label {
       display: block;
       margin-bottom: 8px;
       font-weight: 500;
@@ -1162,10 +1154,56 @@
     let isRentAuthenticated = false;
     let roomCode = 'colocation'; // Code fixe pour tous les utilisateurs
 
+    // Fonction utilitaire pour s'assurer que la configuration des groupes est valide
+    function ensureGroupConfigValid() {
+      // Vérifier et réparer les données courses
+      if (!groupesConfig.courses || typeof groupesConfig.courses !== 'object') {
+        groupesConfig.courses = {
+          groupes: [[], [], []],
+          noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+          taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
+        };
+      }
+      
+      if (!Array.isArray(groupesConfig.courses.groupes)) {
+        groupesConfig.courses.groupes = [[], [], []];
+      }
+      
+      // S'assurer que chaque groupe est un tableau
+      for (let i = 0; i < 3; i++) {
+        if (!Array.isArray(groupesConfig.courses.groupes[i])) {
+          groupesConfig.courses.groupes[i] = [];
+        }
+      }
+      
+      // Vérifier et réparer les données menage
+      if (!groupesConfig.menage || typeof groupesConfig.menage !== 'object') {
+        groupesConfig.menage = {
+          groupes: [[], []],
+          noms: ['Groupe 1', 'Groupe 2'],
+          taches: ['Fait le ménage', 'Se repose']
+        };
+      }
+      
+      if (!Array.isArray(groupesConfig.menage.groupes)) {
+        groupesConfig.menage.groupes = [[], []];
+      }
+      
+      // S'assurer que chaque groupe est un tableau
+      for (let i = 0; i < 2; i++) {
+        if (!Array.isArray(groupesConfig.menage.groupes[i])) {
+          groupesConfig.menage.groupes[i] = [];
+        }
+      }
+    }
+
     // Fonction pour sauvegarder dans Firebase
     function sauvegarderSurFirebase() {
       // Ne pas synchroniser si on est en train de charger des données
       if (isFirebaseSyncing) return;
+      
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
       
       const donnees = {
         personnes: personnes,
@@ -1201,11 +1239,22 @@
         });
     }
     
-        // Fonction pour charger depuis Firebase
+    // Fonction pour charger depuis Firebase
     function chargerDepuisFirebase() {
       database.ref('colocations/' + roomCode).on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
+          // Sauvegarder l'état actuel localement pour comparaison
+          const localData = {
+            personnes: personnes,
+            cotisationsSemaine: cotisationsSemaine,
+            montantCotisation: montantCotisation,
+            groupesConfig: groupesConfig,
+            loyerData: loyerData,
+            rentPasswordSet: rentPasswordSet,
+            rentPassword: rentPassword
+          };
+          
           // Mettre à jour les données
           personnes = data.personnes || [];
           cotisationsSemaine = data.cotisationsSemaine || {};
@@ -1217,7 +1266,7 @@
             if (data.groupesConfig.courses) {
               groupesConfig.courses = {
                 groupes: Array.isArray(data.groupesConfig.courses.groupes) ? 
-                        data.groupesConfig.courses.groupes : [[], [], []],
+                         data.groupesConfig.courses.groupes : [[], [], []],
                 noms: Array.isArray(data.groupesConfig.courses.noms) ? 
                       data.groupesConfig.courses.noms : ['Groupe A', 'Groupe B', 'Groupe C'],
                 taches: Array.isArray(data.groupesConfig.courses.taches) ? 
@@ -1235,7 +1284,7 @@
             if (data.groupesConfig.menage) {
               groupesConfig.menage = {
                 groupes: Array.isArray(data.groupesConfig.menage.groupes) ? 
-                        data.groupesConfig.menage.groupes : [[], []],
+                         data.groupesConfig.menage.groupes : [[], []],
                 noms: Array.isArray(data.groupesConfig.menage.noms) ? 
                       data.groupesConfig.menage.noms : ['Groupe 1', 'Groupe 2'],
                 taches: Array.isArray(data.groupesConfig.menage.taches) ? 
@@ -1270,19 +1319,35 @@
             depensesImprevues: []
           };
           
+          // S'assurer que les propriétés de loyerData sont des tableaux
+          if (!Array.isArray(loyerData.paiements)) {
+            loyerData.paiements = [];
+          }
+          if (!Array.isArray(loyerData.depensesImprevues)) {
+            loyerData.depensesImprevues = [];
+          }
+          
           rentPasswordSet = data.rentPasswordSet || false;
           rentPassword = data.rentPassword || '';
           
-          // Mettre à jour l'interface
-          rendreCotisations();
-          rendrePersonnes();
-          rendreTaches();
-          mettreAJourLoyer();
-          mettreAJourRentAccess();
+          // Vérifier si les données ont changé
+          const dataChanged = JSON.stringify(localData) !== JSON.stringify({
+            personnes: personnes,
+            cotisationsSemaine: cotisationsSemaine,
+            montantCotisation: montantCotisation,
+            groupesConfig: groupesConfig,
+            loyerData: loyerData,
+            rentPasswordSet: rentPasswordSet,
+            rentPassword: rentPassword
+          });
           
-          // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
-          if (data.lastModifiedBy !== localStorage.getItem('userId')) {
-            // Pas de notification de synchronisation
+          // Mettre à jour l'interface uniquement si nécessaire
+          if (dataChanged) {
+            rendreCotisations();
+            rendrePersonnes();
+            rendreTaches();
+            mettreAJourLoyer();
+            mettreAJourRentAccess();
           }
         }
       });
@@ -1372,6 +1437,9 @@
         isRentAuthenticated = false;
         rentPasswordSet = false;
       }
+      
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
     }
 
     // Sauvegarde des données
@@ -1509,18 +1577,43 @@
         personnes = personnes.filter(p => p.id !== idPersonne);
         delete cotisationsSemaine[idPersonne];
         
-        // Retirer la personne des groupes
+        // Retirer la personne des groupes avec vérifications de sécurité
         Object.keys(groupesConfig).forEach(type => {
-          groupesConfig[type].groupes.forEach(groupe => {
-            const index = groupe.indexOf(idPersonne);
-            if (index !== -1) {
-              groupe.splice(index, 1);
+          // Vérifier que le type existe et que groupes est un tableau
+          if (groupesConfig[type] && Array.isArray(groupesConfig[type].groupes)) {
+            groupesConfig[type].groupes.forEach((groupe, index) => {
+              // Vérifier que groupe est un tableau
+              if (Array.isArray(groupe)) {
+                const idx = groupe.indexOf(idPersonne);
+                if (idx !== -1) {
+                  groupe.splice(idx, 1);
+                }
+              } else {
+                // Réinitialiser le groupe s'il n'est pas un tableau
+                groupesConfig[type].groupes[index] = [];
+              }
+            });
+          } else {
+            // Réinitialiser la configuration si nécessaire
+            if (type === 'courses') {
+              groupesConfig.courses = {
+                groupes: [[], [], []],
+                noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+                taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
+              };
+            } else {
+              groupesConfig.menage = {
+                groupes: [[], []],
+                noms: ['Groupe 1', 'Groupe 2'],
+                taches: ['Fait le ménage', 'Se repose']
+              };
             }
-          });
+          }
         });
         
         // Retirer la personne des paiements de loyer
-        loyerData.paiements = loyerData.paiements.filter(p => p.personneId !== idPersonne);
+        loyerData.paiements = Array.isArray(loyerData.paiements) ? 
+          loyerData.paiements.filter(p => p.personneId !== idPersonne) : [];
         
         sauvegarderDonnees();
         rendrePersonnes();
@@ -1655,6 +1748,9 @@
 
     // Rendu des tâches
     function rendreTaches() {
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       // Rendre la configuration des groupes
       rendreConfigGroupes();
       
@@ -1662,8 +1758,11 @@
       rendreTachesSemaine();
     }
 
-      // Rendre la configuration des groupes
+    // Rendre la configuration des groupes
     function rendreConfigGroupes() {
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       // Courses
       const coursesConfig = document.getElementById('coursesGroupsConfig');
       if (coursesConfig) {
@@ -1739,6 +1838,9 @@
 
     // Rendre les tâches de la semaine
     function rendreTachesSemaine() {
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       const maintenant = new Date();
       const dimanche = new Date(maintenant);
       dimanche.setDate(maintenant.getDate() - maintenant.getDay());
@@ -1771,10 +1873,10 @@
         
         // CORRECTION : Vérifier si groupesConfig.courses.groupes existe et est un tableau
         const groupe = Array.isArray(groupesConfig.courses?.groupes) && 
-                      groupesConfig.courses.groupes[groupeIndex] !== null &&
-                      Array.isArray(groupesConfig.courses.groupes[groupeIndex]) ?
-                      groupesConfig.courses.groupes[groupeIndex] : [];
-                      
+                       groupesConfig.courses.groupes[groupeIndex] !== null &&
+                       Array.isArray(groupesConfig.courses.groupes[groupeIndex]) ?
+                       groupesConfig.courses.groupes[groupeIndex] : [];
+                       
         const tacheIndex = (i + rotationCourses) % 3;
         
         html += `
@@ -1810,10 +1912,10 @@
         
         // CORRECTION : Vérifier si groupesConfig.menage.groupes existe et est un tableau
         const groupe = Array.isArray(groupesConfig.menage?.groupes) && 
-                      groupesConfig.menage.groupes[groupeIndex] !== null &&
-                      Array.isArray(groupesConfig.menage.groupes[groupeIndex]) ?
-                      groupesConfig.menage.groupes[groupeIndex] : [];
-                      
+                       groupesConfig.menage.groupes[groupeIndex] !== null &&
+                       Array.isArray(groupesConfig.menage.groupes[groupeIndex]) ?
+                       groupesConfig.menage.groupes[groupeIndex] : [];
+                       
         const tacheIndex = (i + rotationMenage) % 2;
         
         html += `
@@ -1837,6 +1939,9 @@
 
     // Ouvrir la modal de configuration des groupes
     function openGroupModal(type) {
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       // Déterminer le nombre de semaines écoulées pour afficher la rotation actuelle
       const maintenant = new Date();
       const dimanche = new Date(maintenant);
@@ -1986,14 +2091,14 @@
         let isInGroup = false;
         if (type === 'courses') {
           for (let i = 0; i < 3; i++) {
-            if (groupesConfig.courses.groupes[i].includes(personne.id)) {
+            if (Array.isArray(groupesConfig.courses.groupes[i]) && groupesConfig.courses.groupes[i].includes(personne.id)) {
               isInGroup = true;
               break;
             }
           }
         } else {
           for (let i = 0; i < 2; i++) {
-            if (groupesConfig.menage.groupes[i].includes(personne.id)) {
+            if (Array.isArray(groupesConfig.menage.groupes[i]) && groupesConfig.menage.groupes[i].includes(personne.id)) {
               isInGroup = true;
               break;
             }
@@ -2045,17 +2150,51 @@
       // Vérifier si on déplace dans le bon type de groupe
       if (dragType !== type) return;
       
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       // Retirer de l'ancien groupe
       if (sourceGroup !== -1) {
         if (type === 'courses') {
-          groupesConfig.courses.groupes[sourceGroup] = groupesConfig.courses.groupes[sourceGroup].filter(id => id !== personId);
+          // Vérifier que le groupe existe
+          if (groupesConfig.courses && 
+              Array.isArray(groupesConfig.courses.groupes) && 
+              groupesConfig.courses.groupes[sourceGroup] && 
+              Array.isArray(groupesConfig.courses.groupes[sourceGroup])) {
+            groupesConfig.courses.groupes[sourceGroup] = 
+              groupesConfig.courses.groupes[sourceGroup].filter(id => id !== personId);
+          }
         } else {
-          groupesConfig.menage.groupes[sourceGroup] = groupesConfig.menage.groupes[sourceGroup].filter(id => id !== personId);
+          // Vérifier que le groupe existe
+          if (groupesConfig.menage && 
+              Array.isArray(groupesConfig.menage.groupes) && 
+              groupesConfig.menage.groupes[sourceGroup] && 
+              Array.isArray(groupesConfig.menage.groupes[sourceGroup])) {
+            groupesConfig.menage.groupes[sourceGroup] = 
+              groupesConfig.menage.groupes[sourceGroup].filter(id => id !== personId);
+          }
         }
       }
       
       // Ajouter au nouveau groupe
       if (type === 'courses') {
+        // Vérifier et réinitialiser la structure si nécessaire
+        if (!groupesConfig.courses) {
+          groupesConfig.courses = {
+            groupes: [[], [], []],
+            noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+            taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
+          };
+        }
+        
+        if (!Array.isArray(groupesConfig.courses.groupes)) {
+          groupesConfig.courses.groupes = [[], [], []];
+        }
+        
+        if (!Array.isArray(groupesConfig.courses.groupes[targetGroup])) {
+          groupesConfig.courses.groupes[targetGroup] = [];
+        }
+        
         // Vérifier si le groupe est déjà plein (2 personnes max)
         if (groupesConfig.courses.groupes[targetGroup].length < 2) {
           groupesConfig.courses.groupes[targetGroup].push(personId);
@@ -2064,6 +2203,23 @@
           return;
         }
       } else {
+        // Vérifier et réinitialiser la structure si nécessaire
+        if (!groupesConfig.menage) {
+          groupesConfig.menage = {
+            groupes: [[], []],
+            noms: ['Groupe 1', 'Groupe 2'],
+            taches: ['Fait le ménage', 'Se repose']
+          };
+        }
+        
+        if (!Array.isArray(groupesConfig.menage.groupes)) {
+          groupesConfig.menage.groupes = [[], []];
+        }
+        
+        if (!Array.isArray(groupesConfig.menage.groupes[targetGroup])) {
+          groupesConfig.menage.groupes[targetGroup] = [];
+        }
+        
         // Vérifier si le groupe est déjà plein
         if (groupesConfig.menage.groupes[targetGroup].length < Math.ceil(personnes.length / 2)) {
           groupesConfig.menage.groupes[targetGroup].push(personId);
@@ -2079,6 +2235,9 @@
 
     // Retirer une personne d'un groupe
     function removeFromGroup(type, groupIndex, personId) {
+      // S'assurer que la configuration des groupes est valide
+      ensureGroupConfigValid();
+      
       if (type === 'courses') {
         const index = groupesConfig.courses.groupes[groupIndex].indexOf(personId);
         if (index !== -1) {
@@ -2446,6 +2605,14 @@
 
     // Mettre à jour l'affichage du loyer
     function mettreAJourLoyer() {
+      // S'assurer que les propriétés de loyerData sont des tableaux
+      if (!Array.isArray(loyerData.paiements)) {
+        loyerData.paiements = [];
+      }
+      if (!Array.isArray(loyerData.depensesImprevues)) {
+        loyerData.depensesImprevues = [];
+      }
+      
       // Calculer les totaux
       const totalLoyer = loyerData.total;
       
@@ -2565,7 +2732,7 @@
       mettreAJourResumePaiements();
     }
 
-        // Mettre à jour le résumé des paiements
+    // Mettre à jour le résumé des paiements
     function mettreAJourResumePaiements() {
       // Calculer les totaux - SEULEMENT LOYER ET DEPENSES
       // CORRECTION : Vérifier si paiements existe et est un tableau
@@ -2689,4 +2856,3 @@
   </script>
 </body>
 </html>
-
