@@ -1107,10 +1107,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   
   <script>
-    // Configuration Firebase
+    // Configuration Firebase - CORRIGÉE POUR LA RÉGION EUROPE
     const firebaseConfig = {
       apiKey: "AIzaSyB7S2I45eyDhskcZIsR_3wUXnakIE-IKOA",
       authDomain: "gestion-colocation-4e320.firebaseapp.com",
+      databaseURL: "https://gestion-colocation-4e320-default-rtdb.europe-west1.firebasedatabase.app",
       projectId: "gestion-colocation-4e320",
       storageBucket: "gestion-colocation-4e320.firebasestorage.app",
       messagingSenderId: "130270216760",
@@ -1196,49 +1197,46 @@
       database.ref('colocations/' + roomCode).on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          // Sauvegarder l'état actuel localement pour comparaison
-          const localData = {
-            personnes: personnes,
-            cotisationsSemaine: cotisationsSemaine,
-            montantCotisation: montantCotisation,
-            groupesConfig: groupesConfig,
-            loyerData: loyerData,
-            rentPasswordSet: rentPasswordSet,
-            rentPassword: rentPassword
-          };
-          
           // Mettre à jour les données
           personnes = data.personnes || [];
           cotisationsSemaine = data.cotisationsSemaine || {};
           montantCotisation = data.montantCotisation || 100;
-          groupesConfig = data.groupesConfig || groupesConfig;
-          loyerData = data.loyerData || loyerData;
+          
+          // Vérification sécurisée pour groupesConfig
+          if (data.groupesConfig) {
+            groupesConfig = {
+              courses: {
+                groupes: data.groupesConfig.courses?.groupes || [[], [], []],
+                noms: data.groupesConfig.courses?.noms || ['Groupe A', 'Groupe B', 'Groupe C'],
+                taches: data.groupesConfig.courses?.taches || ['Achète le poulet', 'Fait les courses', 'Se repose']
+              },
+              menage: {
+                groupes: data.groupesConfig.menage?.groupes || [[], []],
+                noms: data.groupesConfig.menage?.noms || ['Groupe 1', 'Groupe 2'],
+                taches: data.groupesConfig.menage?.taches || ['Fait le ménage', 'Se repose']
+              }
+            };
+          }
+          
+          loyerData = data.loyerData || {
+            total: 3000,
+            paiements: [],
+            depensesImprevues: []
+          };
+          
           rentPasswordSet = data.rentPasswordSet || false;
           rentPassword = data.rentPassword || '';
           
-          // Vérifier si les données ont changé
-          const dataChanged = JSON.stringify(localData) !== JSON.stringify({
-            personnes: personnes,
-            cotisationsSemaine: cotisationsSemaine,
-            montantCotisation: montantCotisation,
-            groupesConfig: groupesConfig,
-            loyerData: loyerData,
-            rentPasswordSet: rentPasswordSet,
-            rentPassword: rentPassword
-          });
+          // Mettre à jour l'interface
+          rendreCotisations();
+          rendrePersonnes();
+          rendreTaches();
+          mettreAJourLoyer();
+          mettreAJourRentAccess();
           
-          // Mettre à jour l'interface uniquement si nécessaire
-          if (dataChanged) {
-            rendreCotisations();
-            rendrePersonnes();
-            rendreTaches();
-            mettreAJourLoyer();
-            mettreAJourRentAccess();
-            
-            // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
-            if (data.lastModifiedBy !== localStorage.getItem('userId')) {
-              afficherNotification("Données synchronisées avec les colocataires !");
-            }
+          // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
+          if (data.lastModifiedBy !== localStorage.getItem('userId')) {
+            afficherNotification("Données synchronisées avec les colocataires !");
           }
         }
       });
@@ -1276,18 +1274,20 @@
         montantCotisation = donnees.montantCotisation || 100;
         
         // Assurer une structure correcte pour groupesConfig
-        groupesConfig = {
-          courses: {
-            groupes: donnees.groupesConfig?.courses?.groupes || [[], [], []],
-            noms: donnees.groupesConfig?.courses?.noms || ['Groupe A', 'Groupe B', 'Groupe C'],
-            taches: donnees.groupesConfig?.courses?.taches || ['Achète le poulet', 'Fait les courses', 'Se repose']
-          },
-          menage: {
-            groupes: donnees.groupesConfig?.menage?.groupes || [[], []],
-            noms: donnees.groupesConfig?.menage?.noms || ['Groupe 1', 'Groupe 2'],
-            taches: donnees.groupesConfig?.menage?.taches || ['Fait le ménage', 'Se repose']
-          }
-        };
+        if (donnees.groupesConfig) {
+          groupesConfig = {
+            courses: {
+              groupes: donnees.groupesConfig.courses?.groupes || [[], [], []],
+              noms: donnees.groupesConfig.courses?.noms || ['Groupe A', 'Groupe B', 'Groupe C'],
+              taches: donnees.groupesConfig.courses?.taches || ['Achète le poulet', 'Fait les courses', 'Se repose']
+            },
+            menage: {
+              groupes: donnees.groupesConfig.menage?.groupes || [[], []],
+              noms: donnees.groupesConfig.menage?.noms || ['Groupe 1', 'Groupe 2'],
+              taches: donnees.groupesConfig.menage?.taches || ['Fait le ménage', 'Se repose']
+            }
+          };
+        }
         
         loyerData = donnees.loyerData || {
           total: 3000,
@@ -1354,12 +1354,10 @@
       
       chargerDonnees();
       mettreAJourSemaine();
-      demarrerCompteur();
       rendreCotisations();
       rendrePersonnes();
       rendreHistorique();
       rendreTaches();
-      verifierSauvegardeAutomatique();
       
       // Mettre à jour l'affichage du montant
       document.getElementById('montantCotisation').value = montantCotisation;
@@ -1369,9 +1367,6 @@
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('rentDate').value = today;
       document.getElementById('expenseDate').value = today;
-      
-      // Initialiser la configuration du loyer
-      document.getElementById('rentAmountConfig').value = loyerData.total;
       
       // Initialiser Firebase
       chargerDepuisFirebase();
@@ -1416,37 +1411,6 @@
         `Semaine du ${dimanche.toLocaleDateString('fr-FR')} au ${new Date(dimanche.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR')}`;
       
       return { dimanche, maintenant };
-    }
-
-    // Compteur de temps jusqu'à la sauvegarde automatique
-    function demarrerCompteur() {
-      const maintenant = new Date();
-      const samediSoir = new Date(maintenant);
-      
-      // Calculer le prochain samedi à 23h59
-      const joursRestants = (6 - maintenant.getDay() + 7) % 7;
-      samediSoir.setDate(maintenant.getDate() + joursRestants);
-      samediSoir.setHours(23, 59, 0, 0);
-      
-      // Mettre à jour le compteur toutes les secondes
-      const compteur = setInterval(() => {
-        const maintenant = new Date();
-        const diff = samediSoir - maintenant;
-        
-        if (diff <= 0) {
-          clearInterval(compteur);
-          sauvegarderDonnees();
-          return;
-        }
-        
-        const jours = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const heures = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secondes = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        document.getElementById('autoSaveTimer').textContent = 
-          `${jours}j ${heures}h ${minutes}m ${secondes}s`;
-      }, 1000);
     }
 
     // Afficher notification
@@ -1656,45 +1620,53 @@
     function rendreConfigGroupes() {
       // Courses
       const coursesConfig = document.getElementById('coursesGroupsConfig');
-      let coursesHtml = '';
-      
-      groupesConfig.courses.groupes.forEach((groupe, index) => {
-        coursesHtml += `
-          <div class="group-item">
-            <div class="group-title">${groupesConfig.courses.noms[index]}</div>
-            <div class="group-members">
-              ${groupe.map(id => {
-                const personne = personnes.find(p => p.id === id);
-                return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
-              }).join('')}
-              ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
-            </div>
-          </div>
-        `;
-      });
-      
-      coursesConfig.innerHTML = coursesHtml;
+      if (coursesConfig) {
+        let coursesHtml = '';
+        
+        if (groupesConfig.courses && groupesConfig.courses.groupes) {
+          groupesConfig.courses.groupes.forEach((groupe, index) => {
+            coursesHtml += `
+              <div class="group-item">
+                <div class="group-title">${groupesConfig.courses.noms[index]}</div>
+                <div class="group-members">
+                  ${groupe.map(id => {
+                    const personne = personnes.find(p => p.id === id);
+                    return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
+                  }).join('')}
+                  ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
+                </div>
+              </div>
+            `;
+          });
+        }
+        
+        coursesConfig.innerHTML = coursesHtml;
+      }
       
       // Ménage
       const menageConfig = document.getElementById('menageGroupsConfig');
-      let menageHtml = '';
-      
-      groupesConfig.menage.groupes.forEach((groupe, index) => {
-        menageHtml += `
-          <div class="group-item">
-            <div class="group-title">${groupesConfig.menage.noms[index]}</div>
-            <div class="group-members">
-              ${groupe.map(id => {
-                const personne = personnes.find(p => p.id === id);
-                return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
-              }).join('')}
-              ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
-            </div>
-          </div>
-        `;
-      });
-      
-      menageConfig.innerHTML = menageHtml;
+      if (menageConfig) {
+        let menageHtml = '';
+        
+        if (groupesConfig.menage && groupesConfig.menage.groupes) {
+          groupesConfig.menage.groupes.forEach((groupe, index) => {
+            menageHtml += `
+              <div class="group-item">
+                <div class="group-title">${groupesConfig.menage.noms[index]}</div>
+                <div class="group-members">
+                  ${groupe.map(id => {
+                    const personne = personnes.find(p => p.id === id);
+                    return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
+                  }).join('')}
+                  ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
+                </div>
+              </div>
+            `;
+          });
+        }
+        
+        menageConfig.innerHTML = menageHtml;
+      }
     }
 
     // Rendre les tâches de la semaine
@@ -2614,26 +2586,6 @@
       printWindow.document.write('</body></html>');
       printWindow.document.close();
       printWindow.print();
-    }
-
-    // Sauvegarde automatique chaque samedi à 23h59
-    function verifierSauvegardeAutomatique() {
-      function verifier() {
-        const maintenant = new Date();
-        const jour = maintenant.getDay(); // 0 = dimanche, 6 = samedi
-        const heures = maintenant.getHours();
-        const minutes = maintenant.getMinutes();
-        
-        // Si c'est samedi et qu'il est 23h59
-        if (jour === 6 && heures === 23 && minutes === 59) {
-          sauvegarderManuellement();
-        }
-        
-        // Vérifier à nouveau dans une minute
-        setTimeout(verifier, 60000);
-      }
-      
-      verifier();
     }
   </script>
 </body>
