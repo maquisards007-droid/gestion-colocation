@@ -1201,7 +1201,7 @@
         });
     }
     
-    // Fonction pour charger depuis Firebase
+        // Fonction pour charger depuis Firebase
     function chargerDepuisFirebase() {
       database.ref('colocations/' + roomCode).on('value', (snapshot) => {
         const data = snapshot.val();
@@ -1211,18 +1211,55 @@
           cotisationsSemaine = data.cotisationsSemaine || {};
           montantCotisation = data.montantCotisation || 100;
           
-          // Vérification sécurisée pour groupesConfig
+          // Vérification RENFORCÉE pour groupesConfig
           if (data.groupesConfig) {
+            // Vérifier et réparer les données courses
+            if (data.groupesConfig.courses) {
+              groupesConfig.courses = {
+                groupes: Array.isArray(data.groupesConfig.courses.groupes) ? 
+                        data.groupesConfig.courses.groupes : [[], [], []],
+                noms: Array.isArray(data.groupesConfig.courses.noms) ? 
+                      data.groupesConfig.courses.noms : ['Groupe A', 'Groupe B', 'Groupe C'],
+                taches: Array.isArray(data.groupesConfig.courses.taches) ? 
+                        data.groupesConfig.courses.taches : ['Achète le poulet', 'Fait les courses', 'Se repose']
+              };
+            } else {
+              groupesConfig.courses = {
+                groupes: [[], [], []],
+                noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+                taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
+              };
+            }
+            
+            // Vérifier et réparer les données menage
+            if (data.groupesConfig.menage) {
+              groupesConfig.menage = {
+                groupes: Array.isArray(data.groupesConfig.menage.groupes) ? 
+                        data.groupesConfig.menage.groupes : [[], []],
+                noms: Array.isArray(data.groupesConfig.menage.noms) ? 
+                      data.groupesConfig.menage.noms : ['Groupe 1', 'Groupe 2'],
+                taches: Array.isArray(data.groupesConfig.menage.taches) ? 
+                        data.groupesConfig.menage.taches : ['Fait le ménage', 'Se repose']
+              };
+            } else {
+              groupesConfig.menage = {
+                groupes: [[], []],
+                noms: ['Groupe 1', 'Groupe 2'],
+                taches: ['Fait le ménage', 'Se repose']
+              };
+            }
+          } else {
+            // Réinitialiser complètement si groupesConfig est manquant
             groupesConfig = {
               courses: {
-                groupes: data.groupesConfig.courses?.groupes || [[], [], []],
-                noms: data.groupesConfig.courses?.noms || ['Groupe A', 'Groupe B', 'Groupe C'],
-                taches: data.groupesConfig.courses?.taches || ['Achète le poulet', 'Fait les courses', 'Se repose']
+                groupes: [[], [], []],
+                noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+                taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
               },
               menage: {
-                groupes: data.groupesConfig.menage?.groupes || [[], []],
-                noms: data.groupesConfig.menage?.noms || ['Groupe 1', 'Groupe 2'],
-                taches: data.groupesConfig.menage?.taches || ['Fait le ménage', 'Se repose']
+                groupes: [[], []],
+                noms: ['Groupe 1', 'Groupe 2'],
+                taches: ['Fait le ménage', 'Se repose']
               }
             };
           }
@@ -1243,7 +1280,10 @@
           mettreAJourLoyer();
           mettreAJourRentAccess();
           
-        
+          // Afficher une notification seulement si ce n'est pas nous qui avons fait la modification
+          if (data.lastModifiedBy !== localStorage.getItem('userId')) {
+            // Pas de notification de synchronisation
+          }
         }
       });
     }
@@ -1622,28 +1662,39 @@
       rendreTachesSemaine();
     }
 
-    // Rendre la configuration des groupes
+      // Rendre la configuration des groupes
     function rendreConfigGroupes() {
       // Courses
       const coursesConfig = document.getElementById('coursesGroupsConfig');
       if (coursesConfig) {
         let coursesHtml = '';
         
-        if (groupesConfig.courses && groupesConfig.courses.groupes) {
+        // Vérifications RENFORCÉES pour s'assurer que c'est un tableau
+        if (groupesConfig.courses && 
+            Array.isArray(groupesConfig.courses.groupes) && 
+            groupesConfig.courses.groupes.length > 0) {
+          
           groupesConfig.courses.groupes.forEach((groupe, index) => {
             coursesHtml += `
               <div class="group-item">
-                <div class="group-title">${groupesConfig.courses.noms[index]}</div>
+                <div class="group-title">${groupesConfig.courses.noms[index] || 'Groupe ' + (index + 1)}</div>
                 <div class="group-members">
-                  ${groupe.map(id => {
+                  ${Array.isArray(groupe) ? groupe.map(id => {
                     const personne = personnes.find(p => p.id === id);
                     return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
-                  }).join('')}
-                  ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
+                  }).join('') : ''}
+                  ${Array.isArray(groupe) && groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
                 </div>
               </div>
             `;
           });
+        } else {
+          // Réinitialiser avec des valeurs par défaut si nécessaire
+          groupesConfig.courses = {
+            groupes: [[], [], []],
+            noms: ['Groupe A', 'Groupe B', 'Groupe C'],
+            taches: ['Achète le poulet', 'Fait les courses', 'Se repose']
+          };
         }
         
         coursesConfig.innerHTML = coursesHtml;
@@ -1654,21 +1705,32 @@
       if (menageConfig) {
         let menageHtml = '';
         
-        if (groupesConfig.menage && groupesConfig.menage.groupes) {
+        // Vérifications RENFORCÉES pour s'assurer que c'est un tableau
+        if (groupesConfig.menage && 
+            Array.isArray(groupesConfig.menage.groupes) && 
+            groupesConfig.menage.groupes.length > 0) {
+          
           groupesConfig.menage.groupes.forEach((groupe, index) => {
             menageHtml += `
               <div class="group-item">
-                <div class="group-title">${groupesConfig.menage.noms[index]}</div>
+                <div class="group-title">${groupesConfig.menage.noms[index] || 'Groupe ' + (index + 1)}</div>
                 <div class="group-members">
-                  ${groupe.map(id => {
+                  ${Array.isArray(groupe) ? groupe.map(id => {
                     const personne = personnes.find(p => p.id === id);
                     return personne ? `<span class="member-tag">${personne.nom}</span>` : '';
-                  }).join('')}
-                  ${groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
+                  }).join('') : ''}
+                  ${Array.isArray(groupe) && groupe.length === 0 ? '<small>Aucun membre</small>' : ''}
                 </div>
               </div>
             `;
           });
+        } else {
+          // Réinitialiser avec des valeurs par défaut si nécessaire
+          groupesConfig.menage = {
+            groupes: [[], []],
+            noms: ['Groupe 1', 'Groupe 2'],
+            taches: ['Fait le ménage', 'Se repose']
+          };
         }
         
         menageConfig.innerHTML = menageHtml;
@@ -2615,6 +2677,4 @@
   </script>
 </body>
 </html>
-
-
 
