@@ -1463,6 +1463,12 @@
       sauvegarderSurFirebase();
     }
 
+        // Réinitialiser les cotisations pour la nouvelle semaine
+    personnes.forEach(personne => {
+    cotisationsSemaine[personne.id] = { paye: false, dette: 0 };
+    });
+    sauvegarderDonnees(); // Sauvegarder l'état réinitialisé
+
     // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
       // Générer un ID utilisateur unique s'il n'existe pas
