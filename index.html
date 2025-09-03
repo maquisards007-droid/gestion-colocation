@@ -1463,12 +1463,6 @@
       sauvegarderSurFirebase();
     }
 
-        // Réinitialiser les cotisations pour la nouvelle semaine
-    personnes.forEach(personne => {
-    cotisationsSemaine[personne.id] = { paye: false, dette: 0 };
-    });
-    sauvegarderDonnees(); // Sauvegarder l'état réinitialisé
-
     // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
       // Générer un ID utilisateur unique s'il n'existe pas
@@ -2395,43 +2389,56 @@
 
     // Sauvegarde manuelle de la semaine
     function sauvegarderManuellement(automatique = false) {
-      if (personnes.length === 0) {
+    if (personnes.length === 0) {
         if (!automatique) {
-          afficherNotification('Aucune personne à sauvegarder.', 'error');
+        afficherNotification('Aucune personne à sauvegarder.', 'error');
         }
         return;
-      }
-      
-      const maintenant = new Date();
-      const { dimanche } = mettreAJourSemaine();
-      const vendredi = new Date(dimanche);
-      vendredi.setDate(dimanche.getDate() + 5);
-      
-      const donneesSemaine = {
+    }
+    
+    const maintenant = new Date();
+    const { dimanche } = mettreAJourSemaine();
+    const vendredi = new Date(dimanche);
+    vendredi.setDate(dimanche.getDate() + 5);
+    
+    const donneesSemaine = {
         id: `semaine_${dimanche.getTime()}_${automatique ? 'auto' : 'manuel'}`,
         dateDebut: dimanche.toISOString(),
         dateFin: vendredi.toISOString(),
         personnes: [...personnes],
-        cotisations: {...cotisationsSemaine},
+        cotisations: { ...cotisationsSemaine },
         montantCotisation: montantCotisation,
         dateSauvegarde: maintenant.toISOString(),
         automatique: automatique
-      };
-      
-      historique.unshift(donneesSemaine);
-      
-      // Garder seulement les 5 dernières semaines
-      if (historique.length > 5) {
+    };
+    
+    historique.unshift(donneesSemaine);
+    
+    // Garder seulement les 5 dernières semaines
+    if (historique.length > 5) {
         historique = historique.slice(0, 5);
-      }
-      
-      sauvegarderDonnees();
-      rendreHistorique();
-      if (automatique) {
-        afficherNotification('✅ Sauvegarde automatique de la semaine effectuée !');
-      } else {
+    }
+    
+    sauvegarderDonnees();
+    rendreHistorique();
+    
+    // Réinitialiser seulement les champs de paiement et dette après sauvegarde automatique
+    if (automatique) {
+        // Réinitialiser les cotisations pour la nouvelle semaine
+        Object.keys(cotisationsSemaine).forEach(idPersonne => {
+        cotisationsSemaine[idPersonne] = { 
+            paye: false, 
+            dette: 0 
+        };
+        });
+        
+        sauvegarderDonnees(); // Sauvegarder l'état réinitialisé
+        rendreCotisations(); // Mettre à jour l'affichage des cotisations
+        
+        afficherNotification('✅ Sauvegarde automatique effectuée et champs réinitialisés pour la nouvelle semaine !');
+    } else {
         afficherNotification('✅ Semaine sauvegardée manuellement !');
-      }
+    }
     }
 
     // Événement pour Enter dans le champ nom
