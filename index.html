@@ -2839,46 +2839,91 @@
       });
     }
 
-    // Ouvrir la modal du rapport
+    // Générer le rapport
     function genererRapport() {
       // Calculer les totaux
-      const totalLoyerPaye = loyerData.paiements.reduce((sum, p) => sum + p.montant, 0);
-      const totalDepenses = loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0);
+      const totalLoyerPaye = Array.isArray(loyerData.paiements) ? 
+        loyerData.paiements.reduce((sum, p) => sum + p.montant, 0) : 0;
+      const totalDepenses = Array.isArray(loyerData.depensesImprevues) ? 
+        loyerData.depensesImprevues.reduce((sum, d) => sum + d.montant, 0) : 0;
       const partParPersonne = personnes.length > 0 ? Math.round(totalDepenses / personnes.length) : 0;
       
-      // Mettre à jour le rapport
-      document.getElementById('reportTotalLoyer').textContent = `${loyerData.total} DH`;
-      document.getElementById('reportDepensesImprevues').textContent = `${totalDepenses} DH`;
-      document.getElementById('reportLoyerPaye').textContent = `${totalLoyerPaye} DH`;
-      document.getElementById('reportTotalAPayer').textContent = `${loyerData.total / personnes.length} DH`;
-      document.getElementById('reportSoldeGlobal').textContent = `${(totalLoyerPaye - totalDepenses).toFixed(2)} DH`;
+      // Mettre à jour le contenu du rapport
+      const reportContent = document.getElementById('reportContent');
+      reportContent.innerHTML = `
+        <div class="report-section">
+          <h2>Résumé financier</h2>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Loyer total</div>
+              <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">${loyerData.total} DH</div>
+            </div>
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Loyer payé</div>
+              <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">${totalLoyerPaye} DH</div>
+            </div>
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Dépenses imprévues</div>
+              <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">${totalDepenses} DH</div>
+            </div>
+          </div>
+          
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Solde global</div>
+              <div style="font-size: 2rem; font-weight: 700; color: ${totalLoyerPaye - totalDepenses >= 0 ? '#2f855a' : '#c53030'};">
+                ${(totalLoyerPaye - totalDepenses).toFixed(2)} DH
+              </div>
+            </div>
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Part par personne</div>
+              <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">${partParPersonne} DH</div>
+            </div>
+            <div class="summary-item">
+              <div style="font-size: 1.2rem; color: #718096;">Personnes</div>
+              <div style="font-size: 2rem; font-weight: 700; color: #2d3748;">${personnes.length}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="report-section" style="margin-top: 30px;">
+          <h2>Détail par personne</h2>
+          <div id="reportPeopleDetails">
+            <!-- Détails par personne seront générés ici -->
+          </div>
+        </div>
+      `;
       
       // Détail par personne
       const reportDetails = document.getElementById('reportPeopleDetails');
       reportDetails.innerHTML = '';
       
       personnes.forEach(personne => {
-        const loyerPaye = loyerData.paiements
-          .filter(p => p.personneId === personne.id)
-          .reduce((sum, p) => sum + p.montant, 0);
+        const loyerPaye = Array.isArray(loyerData.paiements) ? 
+          loyerData.paiements
+            .filter(p => p.personneId === personne.id)
+            .reduce((sum, p) => sum + p.montant, 0) : 0;
         
         const solde = loyerPaye - partParPersonne;
         
         const html = `
-          <div style="background: #f7fafc; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-            <h4 style="margin-bottom: 10px; color: #2d3748;">${personne.nom}</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-              <div style="padding: 8px; background: white; border-radius: 5px;">
-                <div style="font-size: 0.8rem; color: #718096;">Loyer payé</div>
-                <div style="font-weight: 600;">${loyerPaye} DH</div>
+          <div class="person-summary" style="margin-bottom: 15px;">
+            <h3 style="margin-bottom: 10px; color: #2d3748;">${personne.nom}</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div style="padding: 10px; background: white; border-radius: 5px;">
+                <div style="font-size: 0.9rem; color: #718096;">Loyer payé</div>
+                <div style="font-weight: 600; font-size: 1.2rem;">${loyerPaye} DH</div>
               </div>
-              <div style="padding: 8px; background: white; border-radius: 5px;">
-                <div style="font-size: 0.8rem; color: #718096;">Part dépenses</div>
-                <div style="font-weight: 600;">${partParPersonne} DH</div>
+              <div style="padding: 10px; background: white; border-radius: 5px;">
+                <div style="font-size: 0.9rem; color: #718096;">Part dépenses</div>
+                <div style="font-weight: 600; font-size: 1.2rem;">${partParPersonne} DH</div>
               </div>
-            </div>
-            <div style="margin-top: 10px; padding: 8px; background: ${solde >= 0 ? '#f0fff4' : '#fff5f5'}; border-radius: 8px; text-align: center; font-weight: 600; color: ${solde >= 0 ? '#2f855a' : '#c53030'};">
-              Solde: ${solde.toFixed(2)} DH
+              <div style="padding: 10px; background: white; border-radius: 5px;">
+                <div style="font-size: 0.9rem; color: #718096;">Solde</div>
+                <div style="font-weight: 600; font-size: 1.2rem; color: ${solde >= 0 ? '#2f855a' : '#c53030'};">
+                  ${solde.toFixed(2)} DH
+                </div>
+              </div>
             </div>
           </div>
         `;
